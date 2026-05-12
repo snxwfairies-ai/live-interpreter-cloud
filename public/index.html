@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
+<meta name="theme-color" content="#060B18"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Interpreter"/>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="apple-touch-icon" href="/icon-192.png"/>
+<title>Live Interpreter</title>
+<style>
+/* ── Reset + Base ────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#060B18;--bg2:#0a0f1e;--border:rgba(255,255,255,0.08);--text:rgba(255,255,255,0.85);--dim:rgba(255,255,255,0.3);--blue:#3b82f6;--pink:#ec4899;--green:#22c55e;--red:#ef4444}
+html,body{height:100%;background:var(--bg);color:white;font-family:'Segoe UI',system-ui,sans-serif;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{cursor:pointer;border:none;background:none;color:inherit;font-family:inherit}
+input{font-family:inherit;color:white;background:rgba(0,0,0,0.3);border:1px solid var(--border);border-radius:12px;padding:10px 14px;font-size:14px;outline:none;transition:border-color .2s}
+input:focus{border-color:rgba(59,130,246,0.5)}
+input::placeholder{color:rgba(255,255,255,0.2)}
+
+/* ── Layout ──────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100dvh;max-width:480px;margin:0 auto;position:relative}
+.screen{flex:1;overflow:hidden;display:flex;flex-direction:column;padding-bottom:64px}
+.scroll{flex:1;overflow-y:auto;padding:0 16px}
+.scroll::-webkit-scrollbar{display:none}
+.hdr{padding:12px 20px 6px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.hdr-title{font-size:15px;font-weight:900;color:white}
+.hdr-sub{font-size:9px;color:var(--dim);font-weight:700;text-transform:uppercase;letter-spacing:.15em}
+
+/* ── Cards ───────────────────────────────────────────────── */
+.card{background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:20px;padding:14px}
+.card+.card{margin-top:10px}
+
+/* ── Lang Pair ───────────────────────────────────────────── */
+.lang-pair{display:flex;align-items:center;gap:8px;padding:0 16px 10px;flex-shrink:0}
+.lang-btn{flex:1;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:18px;padding:8px;text-align:center;cursor:pointer;transition:all .15s}
+.lang-btn:hover{background:rgba(255,255,255,0.07)}
+.lang-btn .flag{font-size:22px}
+.lang-btn .name{font-size:11px;font-weight:900;margin-top:2px}
+.lang-btn .script{font-size:9px;color:var(--dim);font-weight:700}
+.swap-btn{width:36px;height:36px;border-radius:50%;background:rgba(236,72,153,0.08);border:1px solid rgba(236,72,153,0.25)!important;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
+.swap-btn:hover{background:rgba(236,72,153,0.15)}
+
+/* ── Waveform ────────────────────────────────────────────── */
+.wave-box{background:rgba(255,255,255,0.02);border:1px solid var(--border);border-radius:18px;padding:12px;margin:0 16px 10px;flex-shrink:0}
+.wave-bars{display:flex;align-items:center;gap:2px;height:40px}
+.bar{width:3px;border-radius:2px;background:rgba(255,255,255,0.08);transition:height .3s}
+.bar.active{background:linear-gradient(to top,#1565C0,#42A5F5);animation:wave var(--d,.6s) ease-in-out infinite}
+.wave-footer{display:flex;justify-content:space-between;margin-top:6px}
+.wave-status{font-size:9px;color:rgba(255,255,255,0.25);font-weight:700;text-transform:uppercase;letter-spacing:.1em}
+.wave-latency{font-size:9px;font-weight:900;color:var(--green)}
+
+/* ── Transcript ──────────────────────────────────────────── */
+.t-entry{animation:slideUp .25s ease forwards}
+.t-header{display:flex;align-items:center;gap:6px;margin-bottom:4px;padding:0 4px}
+.t-from{font-size:8px;font-weight:900;color:rgba(255,255,255,0.25);text-transform:uppercase}
+.t-arr{font-size:10px;color:rgba(255,255,255,0.1)}
+.t-to{font-size:8px;font-weight:900;color:var(--blue);text-transform:uppercase}
+.t-engine{font-size:7px;font-weight:700;background:rgba(255,255,255,0.05);padding:2px 6px;border-radius:6px;margin-left:auto;color:rgba(255,255,255,0.3);text-transform:uppercase}
+.t-card{background:linear-gradient(135deg,rgba(255,255,255,0.04),transparent);border:1px solid rgba(255,255,255,0.06);border-radius:22px;padding:14px}
+.t-trans{font-size:14px;font-weight:900;line-height:1.3;letter-spacing:-.01em;margin-bottom:6px}
+.t-orig{font-size:10px;color:rgba(255,255,255,0.3);font-style:italic;padding-top:8px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06)}
+
+/* ── Big Button ──────────────────────────────────────────── */
+.big-btn{width:100%;padding:14px;border-radius:18px;font-weight:900;font-size:13px;color:white;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .3s;border:none}
+.big-btn.start{background:linear-gradient(135deg,#db2777,#7c3aed);box-shadow:0 8px 30px rgba(219,39,119,.2)}
+.big-btn.stop{background:linear-gradient(135deg,#dc2626,#991b1b)}
+.big-btn:disabled{opacity:.4;cursor:default}
+
+/* ── Bottom Nav ──────────────────────────────────────────── */
+#nav{position:fixed;bottom:0;left:0;right:0;max-width:480px;margin:0 auto;height:62px;background:rgba(6,11,24,.97);border-top:1px solid rgba(255,255,255,.05);display:flex;align-items:center;justify-content:space-around;padding:0 8px 4px;backdrop-filter:blur(20px);z-index:10}
+.nav-btn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 16px;border-radius:16px;transition:all .2s;border:none;background:none}
+.nav-btn.active{background:rgba(37,99,235,.15)}
+.nav-btn svg{width:20px;height:20px}
+.nav-btn span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em}
+.nav-btn.active svg,.nav-btn.active span{color:#3b82f6!important}
+.nav-btn:not(.active) svg,.nav-btn:not(.active) span{color:rgba(255,255,255,.2)!important}
+
+/* ── Badges ──────────────────────────────────────────────── */
+.badge-live{display:flex;align-items:center;gap:4px;background:rgba(236,72,153,.1);border:1px solid rgba(236,72,153,.2);border-radius:8px;padding:3px 7px}
+.badge-live .dot{width:5px;height:5px;border-radius:50%;background:#ec4899;animation:pulse 1.2s ease-in-out infinite}
+.badge-mic{display:flex;align-items:center;gap:4px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:3px 7px}
+.badge-timer{background:rgba(37,99,235,.1);border:1px solid rgba(59,130,246,.2);border-radius:8px;padding:3px 7px;font-size:9px;font-weight:900;color:var(--blue);font-family:monospace}
+
+/* ── Lang Picker Overlay ─────────────────────────────────── */
+#lang-overlay{position:absolute;inset:0;background:var(--bg);padding:20px;z-index:40;display:none;flex-direction:column}
+#lang-overlay.show{display:flex}
+.lang-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;overflow-y:auto;flex:1;padding-bottom:40px}
+.lang-option{padding:12px;border-radius:16px;border:1px solid var(--border);background:rgba(255,255,255,0.04);text-align:left;cursor:pointer;transition:all .15s}
+.lang-option.sel{background:rgba(59,130,246,.18);border-color:#3b82f6}
+.lang-option .flag{font-size:20px;margin-bottom:4px}
+.lang-option .n{font-size:11px;font-weight:900}
+.lang-option .s{font-size:9px;color:var(--dim);font-weight:700}
+
+/* ── Settings ────────────────────────────────────────────── */
+.settings-row{display:flex;align-items:center;gap:14px;padding:12px;background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:18px;cursor:pointer;transition:all .15s;margin-bottom:8px;width:100%;text-align:left}
+.settings-row:hover{background:rgba(255,255,255,0.07)}
+.settings-row .icon{color:rgba(255,255,255,0.3);flex-shrink:0;width:20px;height:20px}
+.settings-row .label{font-size:12px;font-weight:900;flex:1}
+.settings-row .sub{font-size:8px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:1px}
+.settings-row .arr{color:rgba(255,255,255,0.15)}
+.key-input-wrap{margin-bottom:4px}
+.key-status{font-size:7px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;margin-top:6px}
+.key-status.ok{color:var(--green)}
+.key-status.no{color:var(--red)}
+
+/* ── Toggle ──────────────────────────────────────────────── */
+.toggle{width:40px;height:20px;border-radius:10px;position:relative;border:none;transition:background .3s;cursor:pointer;flex-shrink:0}
+.toggle .knob{position:absolute;top:3px;width:14px;height:14px;border-radius:50%;background:white;transition:left .2s}
+
+/* ── Room ────────────────────────────────────────────────── */
+.participant{display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0}
+.p-avatar{width:46px;height:46px;border-radius:50%;border:2px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;position:relative;transition:all .3s}
+.p-avatar.speaking{border-color:var(--green);box-shadow:0 0 14px rgba(34,197,94,.35)}
+.p-mic-icon{position:absolute;bottom:-3px;right:-3px;width:16px;height:16px;border-radius:50%;border:2px solid var(--bg);display:flex;align-items:center;justify-content:center}
+.p-name{font-size:7px;font-weight:900;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;width:46px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ── Plans ───────────────────────────────────────────────── */
+.plan-card{border:1px solid var(--border);border-radius:20px;padding:14px;margin-bottom:10px;cursor:pointer;transition:all .2s}
+.plan-card.sel{border-width:2px}
+.plan-feat{display:inline-flex;align-items:center;gap:4px;font-size:7px;color:rgba(255,255,255,.4);font-weight:700;background:rgba(255,255,255,.05);padding:3px 7px;border-radius:7px;text-transform:uppercase;letter-spacing:.08em;margin:2px}
+
+/* ── TV ──────────────────────────────────────────────────── */
+.tv-mock{height:90px;background:linear-gradient(135deg,#1e1b4b,#2e1065);border-radius:16px 16px 0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;position:relative}
+.caption-card{background:rgba(37,99,235,.08);border:1px solid rgba(59,130,246,.18);border-radius:18px;padding:12px;margin-bottom:10px;animation:slideUp .25s ease}
+
+/* ── Support ─────────────────────────────────────────────── */
+.msg{max-width:85%;padding:10px 14px;border-radius:18px;font-size:11px;line-height:1.5;white-space:pre-wrap;margin-bottom:4px}
+.msg.bot{background:rgba(255,255,255,.05);border:1px solid var(--border);color:rgba(255,255,255,.8);align-self:flex-start}
+.msg.user{background:rgba(37,99,235,.15);border:1px solid rgba(59,130,246,.25);color:rgba(190,210,255,.9);align-self:flex-end}
+.qr-wrap{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.qr-btn{font-size:8px;font-weight:900;padding:4px 9px;border-radius:10px;border:1px solid rgba(59,130,246,.3);color:#60a5fa;background:rgba(59,130,246,.05);text-transform:uppercase;letter-spacing:.08em}
+.typing-dots{display:flex;gap:3px;padding:10px;background:rgba(255,255,255,.05);border-radius:12px;width:46px;margin-bottom:8px}
+.typing-dots span{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.3);animation:pulse .8s ease-in-out infinite}
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes wave{0%,100%{height:var(--h,20px);opacity:.9}50%{height:5px;opacity:.25}}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+@keyframes slideUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.fade-in{animation:fadeIn .2s ease}
+
+/* ── Empty state ─────────────────────────────────────────── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;opacity:.15;gap:12px}
+.empty svg{width:44px;height:44px}
+.empty span{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.2em}
+
+/* ── Misc ────────────────────────────────────────────────── */
+.pill{display:inline-flex;align-items:center;gap:4px;background:rgba(37,99,235,.12);border:1px solid rgba(59,130,246,.2);border-radius:5px;padding:2px 7px;font-size:7px;font-weight:900;color:#60a5fa;letter-spacing:.1em;text-transform:uppercase}
+.section-label{font-size:8px;font-weight:900;color:rgba(255,255,255,.15);text-transform:uppercase;letter-spacing:.25em;margin-bottom:8px;padding:0 4px}
+.profile-card{background:linear-gradient(135deg,rgba(37,99,235,.1),rgba(236,72,153,.1));border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;gap:14px;align-items:center;margin:0 0 14px}
+.avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#be185d);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;flex-shrink:0}
+.no-keys-warn{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:14px;padding:12px;margin:0 0 12px;display:flex;align-items:flex-start;gap:8px}
+.loading{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100dvh;gap:12px}
+.loading svg{animation:spin 1s linear infinite;color:#3b82f6}
+@keyframes spin{to{transform:rotate(360deg)}}
+.footer-text{text-align:center;font-size:8px;color:rgba(255,255,255,.12);font-weight:700;text-transform:uppercase;letter-spacing:.2em;padding:12px 0 4px}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div class="loading" id="loading">
+  <div style="font-size:40px">🧚</div>
+  <div style="font-size:13px;font-weight:900;letter-spacing:.1em">LIVE INTERPRETER</div>
+  <div style="font-size:10px;color:rgba(255,255,255,.3);font-weight:700;letter-spacing:.15em">snxwfairies innovations</div>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+  </svg>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+
+  <!-- Language Picker Overlay -->
+  <div id="lang-overlay">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span id="lang-overlay-title" style="font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.15em"></span>
+      <button onclick="closeLangPicker()" style="font-size:10px;font-weight:900;color:#3b82f6;text-transform:uppercase;letter-spacing:.1em">Done</button>
+    </div>
+    <div class="lang-grid" id="lang-grid"></div>
+  </div>
+
+  <!-- CALL SCREEN -->
+  <div id="screen-call" class="screen fade-in">
+    <div class="hdr">
+      <div>
+        <div class="hdr-title">Call Interpreter</div>
+        <div class="hdr-sub">snxwfairies innovations</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center" id="call-badges">
+        <button onclick="toggleShowOrig()" id="orig-btn" style="padding:5px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);transition:all .15s">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- No keys warning -->
+    <div id="no-keys-warn" class="no-keys-warn" style="margin:0 16px 8px;display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <div style="font-size:11px;font-weight:900;color:#ef4444">No API keys set</div>
+        <div style="font-size:9px;color:rgba(239,68,68,.7);font-weight:700;margin-top:1px">Go to Settings → API Keys to add your Claude or Sarvam key</div>
+      </div>
+    </div>
+
+    <div class="lang-pair">
+      <div class="lang-btn" id="from-btn" onclick="openLangPicker('from')">
+        <div class="flag" id="from-flag">🇮🇳</div>
+        <div class="name" id="from-name">Hindi</div>
+        <div class="script" id="from-script">हिंदी</div>
+      </div>
+      <button class="swap-btn" onclick="swapLangs()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2.5">
+          <polyline points="16 3 21 8 16 13"/><line x1="4" y1="8" x2="21" y2="8"/>
+          <polyline points="8 21 3 16 8 11"/><line x1="21" y1="16" x2="4" y2="16"/>
+        </svg>
+      </button>
+      <div class="lang-btn" id="to-btn" onclick="openLangPicker('to')">
+        <div class="flag" id="to-flag">🇺🇸</div>
+        <div class="name" id="to-name">English</div>
+        <div class="script" id="to-script">English</div>
+      </div>
+    </div>
+
+    <div class="wave-box">
+      <div class="wave-bars" id="wave-bars"></div>
+      <div class="wave-footer">
+        <span class="wave-status" id="wave-status">Ready to Interpret</span>
+        <span class="wave-latency" id="wave-latency" style="display:none"></span>
+      </div>
+    </div>
+
+    <div class="scroll" id="call-scroll">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px;margin-bottom:8px">
+        <span class="section-label">Session Transcript</span>
+        <button onclick="clearTranscript()" id="clear-btn" style="font-size:8px;font-weight:900;color:rgba(239,68,68,.6);text-transform:uppercase;letter-spacing:.1em;display:none">Clear</button>
+      </div>
+      <div id="transcript-empty" class="empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        <span>Awaiting Input</span>
+      </div>
+      <div id="transcript-list"></div>
+    </div>
+
+    <div style="padding:8px 16px">
+      <button class="big-btn start" id="start-btn" onclick="toggleCall()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        Start Interpreter
+      </button>
+    </div>
+  </div>
+
+  <!-- TV SCREEN -->
+  <div id="screen-tv" class="screen fade-in" style="display:none">
+    <div class="hdr">
+      <div><div class="hdr-title">TV & Streaming</div><div class="hdr-sub">Interpret any app's audio</div></div>
+    </div>
+    <div class="lang-pair">
+      <div class="lang-btn" id="tv-from-btn" onclick="openLangPicker('tv-from')">
+        <div class="flag" id="tv-from-flag">🇺🇸</div>
+        <div class="name" id="tv-from-name">English</div>
+      </div>
+      <button class="swap-btn" onclick="swapTVLangs()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2.5"><polyline points="16 3 21 8 16 13"/><line x1="4" y1="8" x2="21" y2="8"/><polyline points="8 21 3 16 8 11"/><line x1="21" y1="16" x2="4" y2="16"/></svg>
+      </button>
+      <div class="lang-btn" id="tv-to-btn" onclick="openLangPicker('tv-to')">
+        <div class="flag" id="tv-to-flag">🇮🇳</div>
+        <div class="name" id="tv-to-name">Hindi</div>
+      </div>
+    </div>
+    <div style="margin:0 16px 10px;border-radius:16px;overflow:hidden;border:1px solid var(--border)">
+      <div class="tv-mock">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <div style="font-size:8px;color:rgba(255,255,255,.25);font-weight:900;letter-spacing:.18em;text-transform:uppercase">Any App · Netflix · Prime · YouTube</div>
+        <div id="tv-badge" style="position:absolute;top:8px;right:8px;display:none;background:rgba(236,72,153,.15);border:1px solid rgba(236,72,153,.4);border-radius:8px;padding:3px 7px;align-items:center;gap:4px">
+          <div class="dot" style="width:5px;height:5px;border-radius:50%;background:#ec4899;animation:pulse 1.2s ease-in-out infinite"></div>
+          <span style="font-size:7px;font-weight:900;color:#ec4899;text-transform:uppercase;letter-spacing:.1em">CAPTURING</span>
+        </div>
+      </div>
+      <div style="padding:10px;background:rgba(255,255,255,.03)">
+        <div style="font-size:11px;font-weight:900">Floating Bubble Active</div>
+        <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-top:2px" id="tv-pair-label">English → Hindi · Live subtitles</div>
+      </div>
+    </div>
+    <div class="scroll" id="tv-scroll">
+      <div id="tv-empty" class="empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/></svg><span>Tap Start to interpret TV audio</span></div>
+      <div id="tv-captions"></div>
+    </div>
+    <div style="padding:8px 16px;display:flex;gap:8px">
+      <div class="card" style="flex:1;text-align:center;padding:10px">
+        <div style="font-size:18px" id="tv-pair-emoji">🇺🇸→🇮🇳</div>
+        <div style="font-size:8px;color:var(--dim);font-weight:900;text-transform:uppercase;margin-top:2px" id="tv-pair-code">EN→HI</div>
+      </div>
+      <button class="big-btn" id="tv-btn" style="flex:2;padding:10px" onclick="toggleTV()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        START CAPTURE
+      </button>
+    </div>
+  </div>
+
+  <!-- ROOM SCREEN -->
+  <div id="screen-room" class="screen fade-in" style="display:none">
+    <div class="hdr">
+      <div><div class="hdr-title">Interpretation Room</div><div class="hdr-sub" id="room-sub">Join to start</div></div>
+      <div id="room-code-badge" style="display:none;background:rgba(255,255,255,.05);border:1px solid var(--border);border-radius:8px;padding:4px 8px;font-size:8px;font-weight:900;letter-spacing:.2em">SNX-2024</div>
+    </div>
+    <!-- Join form -->
+    <div id="room-join" class="scroll">
+      <div class="card" style="margin-bottom:12px">
+        <div class="section-label">Your name</div>
+        <input id="room-name" type="text" placeholder="e.g. Prashant" style="width:100%;margin-bottom:14px"/>
+        <div class="section-label" style="margin-top:2px">Your language</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px" id="room-lang-grid"></div>
+        <button class="big-btn start" onclick="joinRoom()" id="join-btn" disabled>JOIN ROOM</button>
+      </div>
+    </div>
+    <!-- Room view -->
+    <div id="room-view" style="display:none;flex:1;flex-direction:column;overflow:hidden">
+      <div id="participants-row" style="padding:6px 16px;display:flex;gap:10px;overflow-x:auto;flex-shrink:0"></div>
+      <div class="scroll" id="room-msgs" style="display:flex;flex-direction:column;gap:10px;padding-top:8px">
+        <div class="empty" id="room-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>No messages yet</span></div>
+      </div>
+      <div style="padding:8px 16px;background:rgba(0,0,0,.4);border-top:1px solid var(--border);display:flex;gap:10px;flex-shrink:0">
+        <button id="mic-btn" onclick="toggleRoomMic()" style="width:48px;height:48px;border-radius:14px;border:1px solid rgba(34,197,94,.3);background:rgba(34,197,94,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        </button>
+        <button class="big-btn start" id="speak-btn" onclick="startSpeaking()" style="flex:1;padding:12px">TAP TO SPEAK</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS SCREEN -->
+  <div id="screen-settings" class="screen fade-in" style="display:none">
+    <div class="hdr"><div><div class="hdr-title">Settings</div><div class="hdr-sub">snxwfairies innovations</div></div></div>
+    <div class="scroll">
+      <!-- Profile -->
+      <div class="profile-card">
+        <div class="avatar">P</div>
+        <div>
+          <div style="font-size:13px;font-weight:900">snxwfairies user</div>
+          <div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-top:2px">snxwfairies innovations</div>
+          <div class="pill" style="margin-top:6px">⭐ Free Plan</div>
+        </div>
+      </div>
+
+      <!-- Cloud note -->
+      <div id="cloud-note" style="display:none;background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);border-radius:12px;padding:10px 14px;margin-bottom:10px;font-size:10px;color:#60a5fa;font-weight:700"></div>
+
+      <!-- Admin Secret (for cloud) -->
+      <div class="card" style="margin-bottom:10px;background:rgba(239,68,68,.05);border-color:rgba(239,68,68,.15)">
+        <div style="font-size:11px;font-weight:900;margin-bottom:2px">🔐 Admin Secret</div>
+        <div style="font-size:9px;color:var(--dim);margin-bottom:8px">Required to save API keys on cloud deployment</div>
+        <input type="password" id="admin-secret-input" placeholder="Your ADMIN_SECRET value" style="width:100%"/>
+        <div style="font-size:7px;color:rgba(239,68,68,.5);font-weight:700;margin-top:6px;text-transform:uppercase;letter-spacing:.08em">Local PC: leave blank · Cloud: enter your ADMIN_SECRET</div>
+      </div>
+
+      <!-- API Keys -->
+      <div style="margin-bottom:8px">
+        <div class="section-label">API Keys</div>
+        <div class="card" style="margin-bottom:8px">
+          <div style="font-size:11px;font-weight:900;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center">
+            🤖 Anthropic Claude
+            <span id="claude-status" class="key-status no">Not set</span>
+          </div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:8px">Indian langs fallback + Arabic + English</div>
+          <div class="key-input-wrap">
+            <input type="password" id="claude-key-input" placeholder="sk-ant-api03-…" style="width:100%;margin-bottom:6px" onchange="markKeyDirty('claude')"/>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="saveKey('claude')" style="font-size:9px;font-weight:900;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;padding:5px 12px;border-radius:8px;text-transform:uppercase;letter-spacing:.08em">Save</button>
+            <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:9px;color:#3b82f6;font-weight:700;text-decoration:none">Get key →</a>
+          </div>
+        </div>
+        <div class="card">
+          <div style="font-size:11px;font-weight:900;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center">
+            🇮🇳 Sarvam.ai
+            <span id="sarvam-status" class="key-status no">Not set</span>
+          </div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:8px">Best for Indian languages (primary engine)</div>
+          <div class="key-input-wrap">
+            <input type="password" id="sarvam-key-input" placeholder="sarvam_…" style="width:100%;margin-bottom:6px" onchange="markKeyDirty('sarvam')"/>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button onclick="saveKey('sarvam')" style="font-size:9px;font-weight:900;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;padding:5px 12px;border-radius:8px;text-transform:uppercase;letter-spacing:.08em">Save</button>
+            <a href="https://dashboard.sarvam.ai/" target="_blank" style="font-size:9px;color:#3b82f6;font-weight:700;text-decoration:none">Get key →</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Routing info -->
+      <div class="card" style="margin-bottom:8px;background:rgba(37,99,235,.05);border-color:rgba(59,130,246,.15)">
+        <div style="font-size:9px;font-weight:900;color:#60a5fa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em">Smart Routing</div>
+        <div style="font-size:10px;color:rgba(255,255,255,.5);line-height:1.6">
+          🇮🇳 <b style="color:rgba(255,255,255,.7)">Hindi ↔ Tamil/Telugu/Marathi…</b> → Sarvam.ai<br>
+          🌍 <b style="color:rgba(255,255,255,.7)">Other pairs / fallback</b> → Claude
+        </div>
+      </div>
+
+      <!-- Other settings -->
+      <div class="section-label">More</div>
+      <button class="settings-row" onclick="showScreen('call')">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.88 3.3 2 2 0 0 1 3.85 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+        <div><div class="label">Call Interpreter</div><div class="sub">Real-time voice translation</div></div>
+        <svg class="arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row" onclick="showScreen('plans')">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+        <div><div class="label">Upgrade Plan</div><div class="sub">Unlock unlimited sessions</div></div>
+        <svg class="arr" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+      <button class="settings-row">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div><div class="label">About</div><div class="sub">Live Interpreter v1.0 · snxwfairies.com</div></div>
+      </button>
+
+      <div class="footer-text">© 2026 snxwfairies innovations pvt. ltd</div>
+    </div>
+  </div>
+
+  <!-- PLANS SCREEN -->
+  <div id="screen-plans" class="screen fade-in" style="display:none">
+    <div class="hdr">
+      <div><div class="hdr-title">Choose Plan</div><div class="hdr-sub">All plans · 10 languages</div></div>
+      <button onclick="showScreen('settings')" style="font-size:9px;font-weight:900;color:#3b82f6;text-transform:uppercase;letter-spacing:.1em">← Back</button>
+    </div>
+    <div class="scroll" id="plans-list"></div>
+  </div>
+
+  <!-- SUPPORT SCREEN -->
+  <div id="screen-support" class="screen fade-in" style="display:none">
+    <div class="hdr">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#60a5fa);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🤖</div>
+        <div>
+          <div class="hdr-title" style="font-size:12px">Live Support</div>
+          <div style="font-size:8px;color:var(--green);font-weight:900;text-transform:uppercase;letter-spacing:.1em">🟢 AI Assistant</div>
+        </div>
+      </div>
+      <button onclick="showScreen('settings')" style="font-size:9px;font-weight:900;color:#3b82f6;text-transform:uppercase">← Back</button>
+    </div>
+    <div class="scroll" id="chat-msgs" style="display:flex;flex-direction:column;padding-top:8px"></div>
+    <div style="padding:8px 16px;display:flex;gap:8px">
+      <input id="chat-input" type="text" placeholder="Type your question…" style="flex:1;border-radius:999px;padding:10px 16px" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button onclick="sendChat()" style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#2563eb,#60a5fa);flex-shrink:0;display:flex;align-items:center;justify-content:center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAV -->
+  <nav id="nav">
+    <button class="nav-btn active" id="nav-call" onclick="showScreen('call')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.99 12 19.79 19.79 0 0 1 1.88 3.3 2 2 0 0 1 3.85 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 8.91a16 16 0 0 0 6 6l.97-.97a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+      <span>Call</span>
+    </button>
+    <button class="nav-btn" id="nav-tv" onclick="showScreen('tv')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span>TV Live</span>
+    </button>
+    <button class="nav-btn" id="nav-room" onclick="showScreen('room')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      <span>Room</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Settings</span>
+    </button>
+  </nav>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════════════════ */
+const LANGS=[
+  {code:"hi",name:"Hindi",    flag:"🇮🇳",script:"हिंदी"},
+  {code:"te",name:"Telugu",   flag:"🇮🇳",script:"తెలుగు"},
+  {code:"ta",name:"Tamil",    flag:"🇮🇳",script:"தமிழ்"},
+  {code:"en",name:"English",  flag:"🇺🇸",script:"English"},
+  {code:"mr",name:"Marathi",  flag:"🇮🇳",script:"मराठी"},
+  {code:"kn",name:"Kannada",  flag:"🇮🇳",script:"ಕನ್ನಡ"},
+  {code:"ml",name:"Malayalam",flag:"🇮🇳",script:"മലയാളം"},
+  {code:"gu",name:"Gujarati", flag:"🇮🇳",script:"ગુજરાતી"},
+  {code:"bn",name:"Bengali",  flag:"🇮🇳",script:"বাংলা"},
+  {code:"ar",name:"Arabic",   flag:"🇸🇦",script:"عربي"},
+];
+const LANG_MAP={hi:"hi-IN",te:"te-IN",ta:"ta-IN",en:"en-US",mr:"mr-IN",kn:"kn-IN",ml:"ml-IN",gu:"gu-IN",bn:"bn-IN",ar:"ar-SA"};
+
+/* ── State ──────────────────────────────────────────────── */
+let fromLang=LANGS[0], toLang=LANGS[3];
+let tvFrom=LANGS[3], tvTo=LANGS[0];
+let callActive=false, tvActive=false;
+let recognition=null, tvRecognition=null;
+let showOriginal=true, callStartTime=null, callTimer=null, sessionId=null;
+let keysOk={claude:false,sarvam:false};
+let currentPicker=null; // 'from'|'to'|'tv-from'|'tv-to'|'room-lang'
+let roomMyLang=LANGS[0], roomMicOn=true, roomWs=null, roomUserId='u-'+Math.random().toString(36).slice(2,8);
+let chatHistory=[];
+
+/* Wave bars */
+const HEIGHTS=Array.from({length:32},()=>8+Math.random()*28);
+const waveEl=document.getElementById('wave-bars');
+HEIGHTS.forEach((h,i)=>{
+  const b=document.createElement('div');
+  b.className='bar'; b.style.height='5px';
+  b.style.setProperty('--h',h+'px'); b.style.setProperty('--d',(0.4+Math.random()*0.4)+'s');
+  b.style.animationDelay=(i*28)+'ms';
+  waveEl.appendChild(b);
+});
+
+/* ══════════════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded',async()=>{
+  updateLangUI();
+  buildLangGrid('lang-grid');
+  buildRoomLangGrid();
+  buildPlans();
+  initSupport();
+  await checkKeys();
+  document.getElementById('loading').style.display='none';
+  document.getElementById('app').style.display='flex';
+  requestMic();
+  // Register Service Worker for PWA offline support
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+});
+
+async function checkKeys(){
+  try{
+    const r=await fetch('/api/config');
+    const d=await r.json();
+    keysOk.claude=d.claudeSet; keysOk.sarvam=d.sarvamSet;
+    document.getElementById('claude-status').textContent=d.claudeSet?`✓ ${d.claudeHint}`:'Not set';
+    document.getElementById('claude-status').className='key-status '+(d.claudeSet?'ok':'no');
+    document.getElementById('sarvam-status').textContent=d.sarvamSet?`✓ ${d.sarvamHint}`:'Not set';
+    document.getElementById('sarvam-status').className='key-status '+(d.sarvamSet?'ok':'no');
+    document.getElementById('no-keys-warn').style.display=(d.claudeSet||d.sarvamSet)?'none':'flex';
+    // Show cloud note if running on cloud
+    const cn=document.getElementById('cloud-note');
+    if(cn&&d.cloudNote){cn.style.display='block';cn.textContent='☁️ '+d.cloudNote;}
+  }catch{}
+}
+
+function requestMic(){
+  navigator.mediaDevices?.getUserMedia({audio:true}).catch(()=>{});
+}
+
+/* ══════════════════════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════════════════════ */
+const SCREENS=['call','tv','room','settings','plans','support'];
+function showScreen(id){
+  SCREENS.forEach(s=>{
+    document.getElementById('screen-'+s).style.display=s===id?'flex':'none';
+  });
+  ['call','tv','room','settings'].forEach(s=>{
+    const nb=document.getElementById('nav-'+s);
+    if(nb) nb.className='nav-btn'+(s===id||((id==='plans'||id==='support')&&s==='settings')?' active':'');
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
+   LANG PICKER
+══════════════════════════════════════════════════════════ */
+function buildLangGrid(containerId,selectedCode,onSelect){
+  const g=document.getElementById(containerId);
+  g.innerHTML='';
+  LANGS.forEach(l=>{
+    const b=document.createElement('button');
+    b.className='lang-option'+(l.code===(selectedCode||fromLang.code)?' sel':'');
+    b.innerHTML=`<div class="flag">${l.flag}</div><div class="n">${l.name}</div><div class="s">${l.script}</div>`;
+    b.onclick=()=>{if(onSelect)onSelect(l);else pickLang(l);};
+    g.appendChild(b);
+  });
+}
+
+function openLangPicker(which){
+  currentPicker=which;
+  const overlay=document.getElementById('lang-overlay');
+  const title=document.getElementById('lang-overlay-title');
+  const sel=which==='from'?fromLang:which==='to'?toLang:which==='tv-from'?tvFrom:tvTo;
+  title.textContent=which.includes('from')?'Source Language':'Target Language';
+  buildLangGrid('lang-grid',sel.code,pickLang);
+  overlay.classList.add('show');
+}
+function closeLangPicker(){document.getElementById('lang-overlay').classList.remove('show');}
+function pickLang(l){
+  if(currentPicker==='from')     {fromLang=l;}
+  else if(currentPicker==='to')  {toLang=l;}
+  else if(currentPicker==='tv-from'){tvFrom=l;}
+  else if(currentPicker==='tv-to') {tvTo=l;}
+  updateLangUI();
+  closeLangPicker();
+}
+function updateLangUI(){
+  document.getElementById('from-flag').textContent=fromLang.flag;
+  document.getElementById('from-name').textContent=fromLang.name;
+  document.getElementById('from-script').textContent=fromLang.script;
+  document.getElementById('to-flag').textContent=toLang.flag;
+  document.getElementById('to-name').textContent=toLang.name;
+  document.getElementById('to-script').textContent=toLang.script;
+  document.getElementById('tv-from-flag').textContent=tvFrom.flag;
+  document.getElementById('tv-from-name').textContent=tvFrom.name;
+  document.getElementById('tv-to-flag').textContent=tvTo.flag;
+  document.getElementById('tv-to-name').textContent=tvTo.name;
+  document.getElementById('tv-pair-label').textContent=tvFrom.name+' → '+tvTo.name+' · Live subtitles';
+  document.getElementById('tv-pair-emoji').textContent=tvFrom.flag+'→'+tvTo.flag;
+  document.getElementById('tv-pair-code').textContent=tvFrom.code.toUpperCase()+'→'+tvTo.code.toUpperCase();
+}
+function swapLangs(){const t=fromLang;fromLang=toLang;toLang=t;updateLangUI();}
+function swapTVLangs(){const t=tvFrom;tvFrom=tvTo;tvTo=t;updateLangUI();}
+
+/* ══════════════════════════════════════════════════════════
+   TRANSLATION  (via server)
+══════════════════════════════════════════════════════════ */
+const _cache={};
+async function translate(text,fromCode,toCode,fromName,toName){
+  const k=`${fromCode}:${toCode}:${text.toLowerCase().trim()}`;
+  if(_cache[k])return _cache[k];
+  const r=await fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,fromCode,toCode,fromName,toName})});
+  const d=await r.json();
+  if(d.result){_cache[k]=d;return d;}
+  return {result:text,engine:'',error:d.error};
+}
+
+/* ══════════════════════════════════════════════════════════
+   CALL SCREEN
+══════════════════════════════════════════════════════════ */
+let transcript=[];
+function toggleShowOrig(){
+  showOriginal=!showOriginal;
+  const b=document.getElementById('orig-btn');
+  b.style.background=showOriginal?'rgba(59,130,246,.18)':'rgba(255,255,255,.04)';
+  b.style.borderColor=showOriginal?'rgba(59,130,246,.35)':'rgba(255,255,255,.1)';
+  document.querySelectorAll('.t-orig').forEach(el=>{el.style.display=showOriginal?'block':'none';});
+}
+
+async function toggleCall(){
+  if(!callActive) startCall(); else stopCall();
+}
+
+function startCall(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Speech recognition not supported in this browser. Use Chrome.');return;}
+  callActive=true;
+  callStartTime=Date.now();
+  updateCallUI();
+  // Start timer
+  let secs=0;
+  callTimer=setInterval(()=>{
+    secs++;
+    const m=Math.floor(secs/60).toString().padStart(2,'0');
+    const s=(secs%60).toString().padStart(2,'0');
+    const tb=document.getElementById('timer-badge');
+    if(tb)tb.textContent=m+':'+s;
+  },1000);
+  // Wave
+  document.querySelectorAll('.bar').forEach(b=>b.classList.add('active'));
+  document.getElementById('wave-status').textContent='Interpreting…';
+  // STT
+  recognition=new SR();
+  recognition.continuous=true; recognition.interimResults=false;
+  recognition.lang=LANG_MAP[fromLang.code]||'en-US';
+  recognition.onresult=async e=>{
+    const t0=Date.now();
+    const text=e.results[e.results.length-1][0].transcript;
+    document.getElementById('wave-status').textContent='Translating…';
+    const {result,engine,error}=await translate(text,fromLang.code,toLang.code,fromLang.name,toLang.name);
+    document.getElementById('wave-status').textContent='Interpreting…';
+    if(error){document.getElementById('wave-status').textContent='⚠️ '+error;return;}
+    const latency=Date.now()-t0;
+    const lEl=document.getElementById('wave-latency');
+    lEl.textContent='⚡ '+latency+'ms'; lEl.style.display='block';
+    addTranscriptEntry(text,result,engine||'AI');
+  };
+  recognition.onerror=e=>{if(e.error==='not-allowed')alert('Mic permission denied. Allow in browser settings.');};
+  recognition.start();
+}
+
+function stopCall(){
+  callActive=false;
+  recognition?.stop(); recognition=null;
+  clearInterval(callTimer); callTimer=null;
+  document.querySelectorAll('.bar').forEach(b=>b.classList.remove('active'));
+  document.getElementById('wave-status').textContent='Ready to Interpret';
+  updateCallUI();
+}
+
+function updateCallUI(){
+  const btn=document.getElementById('start-btn');
+  const badges=document.getElementById('call-badges');
+  if(callActive){
+    btn.className='big-btn stop';
+    btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> Stop Interpreter';
+    badges.innerHTML=`
+      <div class="badge-mic"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5"><path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/></svg><span style="font-size:8px;font-weight:900;color:#22c55e;letter-spacing:.1em">MIC</span></div>
+      <div class="badge-timer" id="timer-badge">00:00</div>
+      <div class="badge-live"><div class="dot"></div><span style="font-size:8px;font-weight:900;color:#ec4899;letter-spacing:.1em">LIVE</span></div>
+      <button onclick="toggleShowOrig()" id="orig-btn" style="padding:5px 6px;border-radius:8px;border:1px solid rgba(59,130,246,.35);background:rgba(59,130,246,.18);transition:all .15s">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      </button>`;
+  } else {
+    btn.className='big-btn start';
+    btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg> Start Interpreter';
+    badges.innerHTML=`<button onclick="toggleShowOrig()" id="orig-btn" style="padding:5px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.3)" stroke-width="2.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </button>`;
+  }
+}
+
+function addTranscriptEntry(orig,trans,engine){
+  const empty=document.getElementById('transcript-empty');
+  const list=document.getElementById('transcript-list');
+  const clearBtn=document.getElementById('clear-btn');
+  empty.style.display='none'; clearBtn.style.display='block';
+  const entry=document.createElement('div');
+  entry.className='t-entry'; entry.style.marginBottom='14px';
+  entry.innerHTML=`
+    <div class="t-header">
+      <span class="t-from">${fromLang.name}</span>
+      <span class="t-arr">›</span>
+      <span class="t-to">${toLang.name}</span>
+      <span class="t-engine">${engine}</span>
+    </div>
+    <div class="t-card">
+      <div class="t-trans">${trans}</div>
+      <div class="t-orig" style="display:${showOriginal?'block':'none'}">"${orig}"</div>
+    </div>`;
+  list.appendChild(entry);
+  const scroll=document.getElementById('call-scroll');
+  scroll.scrollTop=scroll.scrollHeight;
+}
+
+function clearTranscript(){
+  document.getElementById('transcript-list').innerHTML='';
+  document.getElementById('transcript-empty').style.display='flex';
+  document.getElementById('clear-btn').style.display='none';
+}
+
+/* ══════════════════════════════════════════════════════════
+   TV SCREEN
+══════════════════════════════════════════════════════════ */
+function toggleTV(){
+  if(!tvActive) startTV(); else stopTV();
+}
+function startTV(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('Speech recognition not supported. Use Chrome.');return;}
+  tvActive=true;
+  const btn=document.getElementById('tv-btn');
+  btn.style.background='linear-gradient(135deg,#dc2626,#991b1b)';
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2"/></svg> STOP CAPTURE';
+  const badge=document.getElementById('tv-badge');
+  badge.style.display='flex';
+  tvRecognition=new (window.SpeechRecognition||window.webkitSpeechRecognition)();
+  tvRecognition.continuous=true; tvRecognition.interimResults=false;
+  tvRecognition.lang=LANG_MAP[tvFrom.code]||'en-US';
+  tvRecognition.onresult=async e=>{
+    const text=e.results[e.results.length-1][0].transcript;
+    const {result}=await translate(text,tvFrom.code,tvTo.code,tvFrom.name,tvTo.name);
+    addCaption(text,result);
+  };
+  tvRecognition.start();
+}
+function stopTV(){
+  tvActive=false;
+  tvRecognition?.stop(); tvRecognition=null;
+  const btn=document.getElementById('tv-btn');
+  btn.style.background='linear-gradient(135deg,#059669,#0f766e)';
+  btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> START CAPTURE';
+  document.getElementById('tv-badge').style.display='none';
+}
+function addCaption(orig,trans){
+  const empty=document.getElementById('tv-empty');
+  empty.style.display='none';
+  const c=document.createElement('div');
+  c.className='caption-card';
+  c.innerHTML=`<div style="font-size:9px;color:var(--dim);font-weight:700;margin-bottom:3px;text-transform:uppercase">🔊 ${orig}</div><div style="font-size:12px;font-weight:900">🇮🇳 ${trans}</div>`;
+  const container=document.getElementById('tv-captions');
+  container.insertBefore(c,container.firstChild);
+  if(container.children.length>10) container.removeChild(container.lastChild);
+}
+
+/* ══════════════════════════════════════════════════════════
+   ROOM SCREEN
+══════════════════════════════════════════════════════════ */
+function buildRoomLangGrid(){
+  const g=document.getElementById('room-lang-grid');
+  g.innerHTML='';
+  LANGS.slice(0,4).forEach(l=>{
+    const b=document.createElement('button');
+    b.className='lang-option'+(l.code===roomMyLang.code?' sel':'');
+    b.innerHTML=`<div class="flag">${l.flag}</div><div class="n">${l.name}</div>`;
+    b.onclick=()=>{
+      roomMyLang=l;
+      document.querySelectorAll('#room-lang-grid .lang-option').forEach(x=>x.classList.remove('sel'));
+      b.classList.add('sel');
+    };
+    g.appendChild(b);
+  });
+}
+document.getElementById('room-name').addEventListener('input',function(){
+  document.getElementById('join-btn').disabled=!this.value.trim();
+});
+
+function joinRoom(){
+  const name=document.getElementById('room-name').value.trim();
+  if(!name)return;
+  document.getElementById('room-join').style.display='none';
+  const rv=document.getElementById('room-view');
+  rv.style.display='flex'; rv.style.flexDirection='column'; rv.style.flex='1'; rv.style.overflow='hidden';
+  document.getElementById('room-code-badge').style.display='block';
+  document.getElementById('room-sub').textContent='1 participant · Live';
+  // WebSocket
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  roomWs=new WebSocket(proto+'//'+location.host);
+  roomWs.onopen=()=>roomWs.send(JSON.stringify({type:'join',roomId:'SNX-2024',userId:roomUserId,name,lang:roomMyLang.name,micOn:roomMicOn}));
+  roomWs.onmessage=async e=>{
+    const d=JSON.parse(e.data);
+    if(d.type==='room_state')     updateParticipants(d.members);
+    else if(d.type==='user_joined')addParticipant(d.user);
+    else if(d.type==='user_left') removeParticipant(d.userId);
+    else if(d.type==='mic_status')updateMicStatus(d.userId,d.micOn);
+    else if(d.type==='speaking')  updateSpeaking(d.userId,d.speaking);
+    else if(d.type==='speech'){
+      const {result}=await translate(d.text,roomMyLang.code,roomMyLang.code,d.sourceLang||'',roomMyLang.name);
+      addRoomMessage(d.userId,d.userName,d.text,result,d.timestamp);
+    }
+  };
+  // Add self
+  addParticipant({id:roomUserId,name:'You',lang:roomMyLang.name,micOn:true});
+}
+
+let participants_data={};
+function updateParticipants(members){
+  members.forEach(m=>participants_data[m.id]=m);
+  renderParticipants();
+}
+function addParticipant(p){participants_data[p.id]=p;renderParticipants();}
+function removeParticipant(id){delete participants_data[id];renderParticipants();}
+function updateMicStatus(id,micOn){if(participants_data[id]){participants_data[id].micOn=micOn;renderParticipants();}}
+function updateSpeaking(id,speaking){if(participants_data[id]){participants_data[id].speaking=speaking;renderParticipants();}}
+
+function renderParticipants(){
+  const row=document.getElementById('participants-row');
+  const count=Object.keys(participants_data).length;
+  document.getElementById('room-sub').textContent=`${count} participant${count!==1?'s':''} · Live`;
+  row.innerHTML='';
+  Object.values(participants_data).forEach(p=>{
+    const div=document.createElement('div');
+    div.className='participant';
+    const micColor=p.micOn?'#22c55e':'#ef4444';
+    const micIcon=p.micOn
+      ?'<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/>'
+      :'<line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/>';
+    div.innerHTML=`
+      <div class="p-avatar${p.speaking?' speaking':''}">
+        ${p.name[0]?.toUpperCase()||'?'}
+        <div class="p-mic-icon" style="background:${micColor}">
+          <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">${micIcon}</svg>
+        </div>
+      </div>
+      <div class="p-name">${p.id===roomUserId?'You':p.name}</div>`;
+    row.appendChild(div);
+  });
+}
+
+function addRoomMessage(userId,userName,orig,trans,ts){
+  const empty=document.getElementById('room-empty');
+  if(empty)empty.remove();
+  const msgs=document.getElementById('room-msgs');
+  const isMe=userId===roomUserId;
+  const div=document.createElement('div');
+  div.style.cssText=`display:flex;flex-direction:column;align-items:${isMe?'flex-end':'flex-start'};animation:slideUp .25s ease`;
+  div.innerHTML=`
+    <div style="font-size:7px;font-weight:900;color:var(--dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;padding:0 6px">${userName} · ${new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}</div>
+    <div style="max-width:85%;padding:10px 14px;border-radius:18px;border:1px solid ${isMe?'rgba(59,130,246,.2)':'var(--border)'};background:${isMe?'rgba(37,99,235,.1)':'rgba(255,255,255,.05)'}">
+      <div style="font-size:10px;color:var(--dim);font-style:italic;margin-bottom:3px">"${orig}"</div>
+      <div style="font-size:12px;font-weight:900">${trans}</div>
+    </div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function toggleRoomMic(){
+  roomMicOn=!roomMicOn;
+  const btn=document.getElementById('mic-btn');
+  const color=roomMicOn?'#22c55e':'#ef4444';
+  const bc=roomMicOn?'rgba(34,197,94,.3)':'rgba(239,68,68,.3)';
+  const bg=roomMicOn?'rgba(34,197,94,.1)':'rgba(239,68,68,.1)';
+  const icon=roomMicOn
+    ?'<path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/>'
+    :'<line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2"/>';
+  btn.style.borderColor=bc; btn.style.background=bg;
+  btn.innerHTML=`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.5">${icon}</svg>`;
+  roomWs?.readyState===WebSocket.OPEN && roomWs.send(JSON.stringify({type:'mic_status',micOn:roomMicOn}));
+}
+
+function startSpeaking(){
+  if(!roomMicOn)return;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return;
+  const btn=document.getElementById('speak-btn');
+  btn.textContent='LISTENING…'; btn.style.background='#dc2626';
+  const r=new SR(); r.lang=LANG_MAP[roomMyLang.code]||'en-US';
+  r.onresult=e=>{
+    const text=e.results[0][0].transcript;
+    roomWs?.readyState===WebSocket.OPEN && roomWs.send(JSON.stringify({type:'speech',text,lang:roomMyLang.name}));
+    addRoomMessage(roomUserId,'You',text,text,Date.now());
+  };
+  r.onend=()=>{btn.textContent='TAP TO SPEAK';btn.style.background='linear-gradient(135deg,#db2777,#7c3aed)'; roomWs?.readyState===WebSocket.OPEN && roomWs.send(JSON.stringify({type:'speaking',speaking:false}));};
+  r.start();
+  roomWs?.readyState===WebSocket.OPEN && roomWs.send(JSON.stringify({type:'speaking',speaking:true}));
+}
+
+/* ══════════════════════════════════════════════════════════
+   SETTINGS — API KEYS
+══════════════════════════════════════════════════════════ */
+function markKeyDirty(){}
+async function saveKey(provider){
+  const input=document.getElementById(provider+'-key-input');
+  const key=input.value.trim();
+  if(!key){alert('Please enter a key first.');return;}
+  const adminSecret=(document.getElementById('admin-secret-input')?.value||'').trim();
+  const body={};
+  body[provider+'Key']=key;
+  const headers={'Content-Type':'application/json'};
+  if(adminSecret) headers['x-admin-secret']=adminSecret;
+  const r=await fetch('/api/config',{method:'POST',headers,body:JSON.stringify(body)});
+  const d=await r.json();
+  if(d.error){alert('❌ '+d.error);return;}
+  await checkKeys();
+  input.value='';
+  alert(`✅ ${provider==='claude'?'Claude':'Sarvam.ai'} key saved!`);
+}
+
+/* ══════════════════════════════════════════════════════════
+   PLANS
+══════════════════════════════════════════════════════════ */
+const PLANS_DATA=[
+  {id:'free',icon:'🆓',name:'Free',price:'₹0',period:'forever',features:['5 sessions/day','3 min per session','4 languages'],color:'#6b7280'},
+  {id:'starter',icon:'⚡',name:'Starter',price:'₹149',period:'/month',features:['30 sessions/day','15 min/session','All 10 languages','7-day history'],color:'#3b82f6',badge:'POPULAR'},
+  {id:'pro',icon:'⭐',name:'Pro',price:'₹399',period:'/month',features:['Unlimited sessions','30 min/session','Group rooms 5 ppl','30-day history'],color:'#8b5cf6'},
+  {id:'business',icon:'💼',name:'Business',price:'₹999',period:'/month',features:['Unlimited everything','Rooms 10 people','90-day history','Priority STT'],color:'#f59e0b'},
+  {id:'enterprise',icon:'🏢',name:'Enterprise',price:'₹2,999',period:'/month',features:['Rooms 50 people','API access','White-label','Custom SLA'],color:'#10b981'},
+];
+
+let selectedPlan='starter';
+function buildPlans(){
+  const list=document.getElementById('plans-list');
+  list.innerHTML='';
+  PLANS_DATA.forEach(p=>{
+    const div=document.createElement('div');
+    div.className='plan-card'+(p.id===selectedPlan?' sel':'');
+    if(p.id===selectedPlan)div.style.borderColor=p.color;
+    div.onclick=()=>{
+      selectedPlan=p.id;
+      document.querySelectorAll('.plan-card').forEach(c=>c.classList.remove('sel'));
+      div.classList.add('sel'); div.style.borderColor=p.color;
+    };
+    div.innerHTML=`
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">${p.icon}</span>
+          <div>
+            <div style="font-size:13px;font-weight:900;display:flex;align-items:center;gap:6px">
+              ${p.name}${p.badge?`<span style="font-size:7px;font-weight:900;background:#be185d;color:white;padding:2px 6px;border-radius:4px">${p.badge}</span>`:''}
+            </div>
+            <div style="font-size:9px;color:var(--dim);font-weight:700">${p.features[0]}</div>
+          </div>
+        </div>
+        <div style="text-align:right"><div style="font-size:17px;font-weight:900">${p.price}</div><div style="font-size:9px;color:var(--dim);font-weight:700">${p.period}</div></div>
+      </div>
+      <div>${p.features.map(f=>`<span class="plan-feat"><svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>${f}</span>`).join('')}</div>`;
+    list.appendChild(div);
+  });
+  const cur=PLANS_DATA.find(p=>p.id===selectedPlan);
+  const sub=document.createElement('button');
+  sub.className='big-btn start';
+  sub.style.cssText='margin:12px 0;background:linear-gradient(135deg,#be185d,#7c3aed)';
+  sub.textContent=`Subscribe — ${cur?.price}${cur?.period}`;
+  sub.onclick=()=>alert('Subscription via Play Store is available in the Android app.\n\nDownload: play.google.com/store/apps');
+  list.appendChild(sub);
+  const note=document.createElement('div');
+  note.className='footer-text';
+  note.innerHTML='Billed via Google Play · Cancel anytime · <a href="https://snxwfairies.com" style="color:#ec4899">snxwfairies.com</a>';
+  list.appendChild(note);
+}
+
+/* ══════════════════════════════════════════════════════════
+   SUPPORT CHAT
+══════════════════════════════════════════════════════════ */
+const SUPPORT_REPLIES={
+  'App not working':{text:'Try these steps:\n1. Refresh the page\n2. Check internet connection\n3. Check Settings → API Keys are set\n4. Try a different browser (Chrome works best)',qr:['Still broken','Fixed! Thanks']},
+  'Payment issue':{text:'Subscriptions are handled via Google Play in the Android app.\n\nFor issues: support@snxwfairies.com',qr:['Contact support','OK thanks']},
+  'How to use?':{text:'1. Go to 📞 Call tab\n2. Select source & target languages\n3. Tap Start Interpreter\n4. Speak — translation appears automatically!\n\nFor rooms: 👥 Room tab',qr:['Tell me more','Got it!']},
+  'Talk to human':{text:'✅ Creating support ticket…\n\nTicket #TKT-2024-'+Math.floor(Math.random()*9999)+'\n\nOur team will reach you at support@snxwfairies.com within 24 hours.',qr:[]},
+  'Tell me more':{text:'You can also use:\n📺 TV Live — interpret any streaming app audio\n👥 Room — multi-user rooms where everyone hears in their own language\n⚙️ Settings — add your API keys (Claude + Sarvam.ai)',qr:['Got it!']},
+};
+
+function initSupport(){
+  addBotMessage('Hello! 👋 I\'m the Live Interpreter support assistant. How can I help?',['App not working','Payment issue','How to use?','Talk to human']);
+}
+
+function addBotMessage(text,qr){
+  const msgs=document.getElementById('chat-msgs');
+  const wrap=document.createElement('div');
+  wrap.style.cssText='display:flex;flex-direction:column;align-items:flex-start;gap:6px;animation:slideUp .25s ease;margin-bottom:8px';
+  wrap.innerHTML=`<div class="msg bot">${text}</div>`;
+  if(qr&&qr.length){
+    const qrWrap=document.createElement('div');
+    qrWrap.className='qr-wrap';
+    qr.forEach(q=>{
+      const b=document.createElement('button');
+      b.className='qr-btn'; b.textContent=q;
+      b.onclick=()=>sendChatMsg(q);
+      qrWrap.appendChild(b);
+    });
+    wrap.appendChild(qrWrap);
+  }
+  msgs.appendChild(wrap);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addUserMessage(text){
+  const msgs=document.getElementById('chat-msgs');
+  const div=document.createElement('div');
+  div.style.cssText='display:flex;justify-content:flex-end;margin-bottom:8px;animation:slideUp .25s ease';
+  div.innerHTML=`<div class="msg user">${text}</div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function addTyping(){
+  const msgs=document.getElementById('chat-msgs');
+  const d=document.createElement('div');
+  d.id='typing'; d.className='typing-dots';
+  d.innerHTML='<span style="animation-delay:0s"></span><span style="animation-delay:.2s"></span><span style="animation-delay:.4s"></span>';
+  msgs.appendChild(d);
+  msgs.scrollTop=msgs.scrollHeight;
+  return d;
+}
+
+function sendChat(){
+  const inp=document.getElementById('chat-input');
+  const msg=inp.value.trim();
+  if(!msg)return;
+  inp.value='';
+  sendChatMsg(msg);
+}
+
+function sendChatMsg(msg){
+  addUserMessage(msg);
+  const typing=addTyping();
+  setTimeout(()=>{
+    typing.remove();
+    const reply=SUPPORT_REPLIES[msg]||{text:'Our team will help you. Email support@snxwfairies.com',qr:['Talk to human']};
+    addBotMessage(reply.text,reply.qr);
+  },1000+Math.random()*500);
+}
+</script>
+</body>
+</html>

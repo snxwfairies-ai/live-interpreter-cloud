@@ -1,0 +1,14 @@
+{
+  "name": "live-interpreter-simple",
+  "version": "1.0.0",
+  "description": "Live Interpreter — Simple Edition by snxwfairies innovations",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev":   "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws":      "^8.19.0"
+  }
+}

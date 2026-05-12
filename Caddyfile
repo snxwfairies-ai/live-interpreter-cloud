@@ -1,0 +1,28 @@
+# Replace interpreter.yourdomain.com with your actual domain
+# Caddy automatically gets a free SSL certificate from Let's Encrypt
+
+interpreter.yourdomain.com {
+    reverse_proxy app:3000
+
+    # WebSocket support (for Room feature)
+    @websockets {
+        header Connection *Upgrade*
+        header Upgrade    websocket
+    }
+    reverse_proxy @websockets app:3000
+
+    # Security headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+
+    # Compress responses
+    encode gzip
+
+    # Access log
+    log {
+        output file /var/log/caddy/access.log
+    }
+}
