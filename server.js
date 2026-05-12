@@ -3,7 +3,7 @@
  * snxwfairies innovations pvt. ltd
  *
  * Run locally:  node server.js
- * Run on cloud: set env vars CLAUDE_API_KEY, SARVAM_API_KEY, ADMIN_SECRET
+ * Run on cloud: set env vars OPENROUTER_API_KEY, SARVAM_API_KEY, ADMIN_SECRET
  */
 
 const express  = require("express");
@@ -32,7 +32,7 @@ const CONFIG_FILE = path.join(__dirname, "data", "config.json");
 fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true });
 
 let config = {
-  claudeKey: process.env.CLAUDE_API_KEY || "",
+  openrouterKey: process.env.OPENROUTER_API_KEY || "",
   sarvamKey: process.env.SARVAM_API_KEY || "",
 };
 
@@ -40,14 +40,14 @@ let config = {
 if (fs.existsSync(CONFIG_FILE)) {
   try {
     const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
-    if (!config.claudeKey) config.claudeKey = saved.claudeKey || "";
+    if (!config.openrouterKey) config.openrouterKey = saved.openrouterKey || "";
     if (!config.sarvamKey) config.sarvamKey = saved.sarvamKey || "";
   } catch {}
 }
 
 function saveConfig() {
   // Only save if not using env vars (don't overwrite cloud config)
-  if (!process.env.CLAUDE_API_KEY && !process.env.SARVAM_API_KEY) {
+  if (!process.env.OPENROUTER_API_KEY && !process.env.SARVAM_API_KEY) {
     fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
   }
 }
@@ -100,18 +100,24 @@ async function translateSarvam(text, fromCode, toCode) {
   return { result: d.translated_text?.trim() || text, engine: "Sarvam.ai 🇮🇳" };
 }
 
-async function translateClaude(text, fromName, toName) {
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+async function translateOpenRouter(text, fromName, toName) {
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
-    headers: { "Content-Type":"application/json", "x-api-key":config.claudeKey, "anthropic-version":"2023-06-01" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${config.openrouterKey}`,
+      "HTTP-Referer": "https://live-interpreter.app",
+      "X-Title": "Live Interpreter",
+    },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001", max_tokens: 512,
-      messages: [{ role:"user", content:`Translate from ${fromName} to ${toName}. Return ONLY the translated text, nothing else:\n"${text}"` }],
+      model: "anthropic/claude-3-haiku",
+      max_tokens: 512,
+      messages: [{ role: "user", content: `Translate from ${fromName} to ${toName}. Return ONLY the translated text, nothing else:\n"${text}"` }],
     }),
   });
-  if (!res.ok) throw new Error(`Claude ${res.status}`);
+  if (!res.ok) throw new Error(`OpenRouter ${res.status}`);
   const d = await res.json();
-  return { result: d.content?.[0]?.text?.trim() || text, engine: "Claude 🤖" };
+  return { result: d.choices?.[0]?.message?.content?.trim() || text, engine: "OpenRouter 🤖" };
 }
 
 // ── API: Translate ────────────────────────────────────────────
@@ -119,7 +125,7 @@ app.post("/api/translate", async (req, res) => {
   const { text, fromCode, toCode, fromName, toName } = req.body;
   if (!text?.trim()) return res.json({ result: "", engine: "" });
 
-  if (!config.claudeKey && !config.sarvamKey)
+  if (!config.openrouterKey && !config.sarvamKey)
     return res.status(503).json({ error: "No API keys configured. Contact the administrator." });
 
   const bothIndian = SARVAM_CODES[fromCode] && SARVAM_CODES[toCode];
@@ -128,11 +134,11 @@ app.post("/api/translate", async (req, res) => {
     if (config.sarvamKey && bothIndian) {
       try { return res.json(await translateSarvam(text, fromCode, toCode)); }
       catch (e) {
-        console.warn("Sarvam failed, falling back to Claude:", e.message);
-        if (!config.claudeKey) throw e;
+        console.warn("Sarvam failed, falling back to OpenRouter:", e.message);
+        if (!config.openrouterKey) throw e;
       }
     }
-    if (config.claudeKey) return res.json(await translateClaude(text, fromName, toName));
+    if (config.openrouterKey) return res.json(await translateOpenRouter(text, fromName, toName));
     return res.json(await translateSarvam(text, fromCode, toCode));
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -142,11 +148,11 @@ app.post("/api/translate", async (req, res) => {
 // ── API: Config (protected by admin secret) ───────────────────
 app.get("/api/config", (_req, res) => {
   res.json({
-    claudeSet:  !!config.claudeKey,
-    sarvamSet:  !!config.sarvamKey,
-    claudeHint: config.claudeKey ? config.claudeKey.slice(0,10) + "…" : null,
-    sarvamHint: config.sarvamKey ? config.sarvamKey.slice(0,10) + "…" : null,
-    isCloud:    IS_CLOUD,
+    openrouterSet:  !!config.openrouterKey,
+    sarvamSet:      !!config.sarvamKey,
+    openrouterHint: config.openrouterKey ? config.openrouterKey.slice(0,10) + "…" : null,
+    sarvamHint:     config.sarvamKey ? config.sarvamKey.slice(0,10) + "…" : null,
+    isCloud:        IS_CLOUD,
     // On cloud, keys are set via env vars — show info
     cloudNote: IS_CLOUD ? "Keys managed via server environment variables." : null,
   });
@@ -158,8 +164,8 @@ app.post("/api/config", (req, res) => {
   if (!secret || secret !== ADMIN_SECRET)
     return res.status(403).json({ error: "Wrong admin secret. Check your ADMIN_SECRET environment variable." });
 
-  const { claudeKey, sarvamKey } = req.body;
-  if (claudeKey !== undefined) config.claudeKey = claudeKey.trim();
+  const { openrouterKey, sarvamKey } = req.body;
+  if (openrouterKey !== undefined) config.openrouterKey = openrouterKey.trim();
   if (sarvamKey !== undefined) config.sarvamKey = sarvamKey.trim();
   saveConfig();
   res.json({ ok: true, message: "Keys saved ✓" });
@@ -224,9 +230,9 @@ server.listen(PORT, "0.0.0.0", () => {
   console.log(`║  📱 Network: http://${localIP}:${PORT}           ║`);
   console.log(`║  🔐 Admin  : set ADMIN_SECRET env var             ║`);
   console.log("╚══════════════════════════════════════════════════╝");
-  console.log(`\n  Claude key : ${config.claudeKey ? "✅ Set" : "❌ Not set"}`);
-  console.log(`  Sarvam key : ${config.sarvamKey ? "✅ Set" : "❌ Not set"}`);
-  if (!config.claudeKey && !config.sarvamKey)
+  console.log(`\n  OpenRouter key : ${config.openrouterKey ? "✅ Set" : "❌ Not set"}`);
+  console.log(`  Sarvam key     : ${config.sarvamKey ? "✅ Set" : "❌ Not set"}`);
+  if (!config.openrouterKey && !config.sarvamKey)
     console.log("\n  ⚠️  No API keys set — go to Settings in the app.\n");
   else
     console.log("\n  ✅ Ready to translate!\n");
