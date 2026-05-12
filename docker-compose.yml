@@ -7,7 +7,7 @@ services:
     environment:
       - PORT=3000
       - NODE_ENV=production
-      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - SARVAM_API_KEY=${SARVAM_API_KEY}
       - ADMIN_SECRET=${ADMIN_SECRET}
     volumes:

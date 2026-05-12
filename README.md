@@ -32,7 +32,7 @@ In Railway → your project → Variables tab:
 
 | Variable | Value |
 |---|---|
-| `CLAUDE_API_KEY` | your Claude key |
+| `OPENROUTER_API_KEY` | your OpenRouter key |
 | `SARVAM_API_KEY` | your Sarvam key |
 | `ADMIN_SECRET` | choose a strong password |
 | `NODE_ENV` | production |
@@ -85,7 +85,7 @@ cd /opt/live-interpreter && docker compose up -d
 
 1. Open your app URL → Settings ⚙️
 2. Enter your **Admin Secret** in the field shown
-3. Paste Claude key → Save
+3. Paste OpenRouter key → Save
 4. Paste Sarvam key → Save
 
 On local PC: leave Admin Secret blank.

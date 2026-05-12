@@ -203,7 +203,7 @@ input::placeholder{color:rgba(255,255,255,0.2)}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
       <div>
         <div style="font-size:11px;font-weight:900;color:#ef4444">No API keys set</div>
-        <div style="font-size:9px;color:rgba(239,68,68,.7);font-weight:700;margin-top:1px">Go to Settings → API Keys to add your Claude or Sarvam key</div>
+        <div style="font-size:9px;color:rgba(239,68,68,.7);font-weight:700;margin-top:1px">Go to Settings → API Keys to add your OpenRouter or Sarvam key</div>
       </div>
     </div>
 
@@ -363,16 +363,16 @@ input::placeholder{color:rgba(255,255,255,0.2)}
         <div class="section-label">API Keys</div>
         <div class="card" style="margin-bottom:8px">
           <div style="font-size:11px;font-weight:900;margin-bottom:2px;display:flex;justify-content:space-between;align-items:center">
-            🤖 Anthropic Claude
-            <span id="claude-status" class="key-status no">Not set</span>
+            🤖 OpenRouter
+            <span id="openrouter-status" class="key-status no">Not set</span>
           </div>
-          <div style="font-size:9px;color:var(--dim);margin-bottom:8px">Indian langs fallback + Arabic + English</div>
+            <div style="font-size:9px;color:var(--dim);margin-bottom:8px">All languages via 200+ models (Claude, GPT, Gemini, Llama…)</div>
           <div class="key-input-wrap">
-            <input type="password" id="claude-key-input" placeholder="sk-ant-api03-…" style="width:100%;margin-bottom:6px" onchange="markKeyDirty('claude')"/>
+            <input type="password" id="openrouter-key-input" placeholder="sk-or-v1-…" style="width:100%;margin-bottom:6px" onchange="markKeyDirty('openrouter')"/>
           </div>
           <div style="display:flex;gap:6px;align-items:center">
-            <button onclick="saveKey('claude')" style="font-size:9px;font-weight:900;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;padding:5px 12px;border-radius:8px;text-transform:uppercase;letter-spacing:.08em">Save</button>
-            <a href="https://console.anthropic.com/settings/keys" target="_blank" style="font-size:9px;color:#3b82f6;font-weight:700;text-decoration:none">Get key →</a>
+            <button onclick="saveKey('openrouter')" style="font-size:9px;font-weight:900;background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.3);color:#3b82f6;padding:5px 12px;border-radius:8px;text-transform:uppercase;letter-spacing:.08em">Save</button>
+            <a href="https://openrouter.ai/keys" target="_blank" style="font-size:9px;color:#3b82f6;font-weight:700;text-decoration:none">Get key →</a>
           </div>
         </div>
         <div class="card">
@@ -396,7 +396,7 @@ input::placeholder{color:rgba(255,255,255,0.2)}
         <div style="font-size:9px;font-weight:900;color:#60a5fa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em">Smart Routing</div>
         <div style="font-size:10px;color:rgba(255,255,255,.5);line-height:1.6">
           🇮🇳 <b style="color:rgba(255,255,255,.7)">Hindi ↔ Tamil/Telugu/Marathi…</b> → Sarvam.ai<br>
-          🌍 <b style="color:rgba(255,255,255,.7)">Other pairs / fallback</b> → Claude
+          🌍 <b style="color:rgba(255,255,255,.7)">Other pairs / fallback</b> → OpenRouter
         </div>
       </div>
 
@@ -496,7 +496,7 @@ let tvFrom=LANGS[3], tvTo=LANGS[0];
 let callActive=false, tvActive=false;
 let recognition=null, tvRecognition=null;
 let showOriginal=true, callStartTime=null, callTimer=null, sessionId=null;
-let keysOk={claude:false,sarvam:false};
+let keysOk={openrouter:false,sarvam:false};
 let currentPicker=null; // 'from'|'to'|'tv-from'|'tv-to'|'room-lang'
 let roomMyLang=LANGS[0], roomMicOn=true, roomWs=null, roomUserId='u-'+Math.random().toString(36).slice(2,8);
 let chatHistory=[];
@@ -535,12 +535,12 @@ async function checkKeys(){
   try{
     const r=await fetch('/api/config');
     const d=await r.json();
-    keysOk.claude=d.claudeSet; keysOk.sarvam=d.sarvamSet;
-    document.getElementById('claude-status').textContent=d.claudeSet?`✓ ${d.claudeHint}`:'Not set';
-    document.getElementById('claude-status').className='key-status '+(d.claudeSet?'ok':'no');
+    keysOk.openrouter=d.openrouterSet; keysOk.sarvam=d.sarvamSet;
+    document.getElementById('openrouter-status').textContent=d.openrouterSet?`✓ ${d.openrouterHint}`:'Not set';
+    document.getElementById('openrouter-status').className='key-status '+(d.openrouterSet?'ok':'no');
     document.getElementById('sarvam-status').textContent=d.sarvamSet?`✓ ${d.sarvamHint}`:'Not set';
     document.getElementById('sarvam-status').className='key-status '+(d.sarvamSet?'ok':'no');
-    document.getElementById('no-keys-warn').style.display=(d.claudeSet||d.sarvamSet)?'none':'flex';
+    document.getElementById('no-keys-warn').style.display=(d.openrouterSet||d.sarvamSet)?'none':'flex';
     // Show cloud note if running on cloud
     const cn=document.getElementById('cloud-note');
     if(cn&&d.cloudNote){cn.style.display='block';cn.textContent='☁️ '+d.cloudNote;}
@@ -937,7 +937,7 @@ async function saveKey(provider){
   if(d.error){alert('❌ '+d.error);return;}
   await checkKeys();
   input.value='';
-  alert(`✅ ${provider==='claude'?'Claude':'Sarvam.ai'} key saved!`);
+  alert(`✅ ${provider==='openrouter'?'OpenRouter':'Sarvam.ai'} key saved!`);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1001,7 +1001,7 @@ const SUPPORT_REPLIES={
   'Payment issue':{text:'Subscriptions are handled via Google Play in the Android app.\n\nFor issues: support@snxwfairies.com',qr:['Contact support','OK thanks']},
   'How to use?':{text:'1. Go to 📞 Call tab\n2. Select source & target languages\n3. Tap Start Interpreter\n4. Speak — translation appears automatically!\n\nFor rooms: 👥 Room tab',qr:['Tell me more','Got it!']},
   'Talk to human':{text:'✅ Creating support ticket…\n\nTicket #TKT-2024-'+Math.floor(Math.random()*9999)+'\n\nOur team will reach you at support@snxwfairies.com within 24 hours.',qr:[]},
-  'Tell me more':{text:'You can also use:\n📺 TV Live — interpret any streaming app audio\n👥 Room — multi-user rooms where everyone hears in their own language\n⚙️ Settings — add your API keys (Claude + Sarvam.ai)',qr:['Got it!']},
+  'Tell me more':{text:'You can also use:\n📺 TV Live — interpret any streaming app audio\n👥 Room — multi-user rooms where everyone hears in their own language\n⚙️ Settings — add your API keys (OpenRouter + Sarvam.ai)',qr:['Got it!']},
 };
 
 function initSupport(){

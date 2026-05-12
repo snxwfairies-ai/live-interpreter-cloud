@@ -14,7 +14,7 @@ echo ""
 
 # ── Collect inputs ────────────────────────────────────────────
 read -p "  Your domain (e.g. interpreter.yourdomain.com): " DOMAIN
-read -p "  Claude API key (sk-ant-...): " CLAUDE_KEY
+read -p "  OpenRouter API key (sk-or-v1-...): " OPENROUTER_KEY
 read -p "  Sarvam AI key (leave blank if none): " SARVAM_KEY
 read -p "  Admin secret password (for Settings page): " ADMIN_SECRET
 echo ""
@@ -66,7 +66,7 @@ CADDY
 
 # ── Write .env.local ──────────────────────────────────────────
 cat > .env.local << ENV
-CLAUDE_API_KEY=$CLAUDE_KEY
+OPENROUTER_API_KEY=$OPENROUTER_KEY
 SARVAM_API_KEY=$SARVAM_KEY
 ADMIN_SECRET=$ADMIN_SECRET
 NODE_ENV=production
