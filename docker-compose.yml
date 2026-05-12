@@ -1,0 +1,40 @@
+services:
+
+  app:
+    build: .
+    container_name: live-interpreter
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - SARVAM_API_KEY=${SARVAM_API_KEY}
+      - ADMIN_SECRET=${ADMIN_SECRET}
+    volumes:
+      - ./data:/app/data       # persists config.json + any saved state
+    networks:
+      - web
+
+  # Caddy = automatic HTTPS, zero config, free SSL certificate
+  caddy:
+    image: caddy:2-alpine
+    container_name: caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - web
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  web:
