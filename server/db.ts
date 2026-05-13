@@ -66,7 +66,7 @@ db.exec(`
 
 const adminExists = db.prepare("SELECT id FROM admin WHERE id=1").get();
 if (!adminExists) {
-  const defaultPass = process.env.ADMIN_PASSWORD || "admin@snxwfairies123";
+  const defaultPass = process.env.ADMIN_PASSWORD || process.env.ADMIN_SECRET || "admin@snxwfairies123";
   const hash = bcrypt.hashSync(defaultPass, 10);
   db.prepare("INSERT INTO admin (id, password_hash, email) VALUES (1, ?, ?)").run(hash, "admin@snxwfairies.com");
   console.log(`\n  🔐 Default admin password: ${defaultPass}`);
