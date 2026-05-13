@@ -1,4 +1,4 @@
-const CACHE_NAME = 'live-interpreter-v1';
+const CACHE_NAME = 'live-interpreter-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -28,12 +28,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch: network-first for API, cache-first for shell
+// Fetch: network-first for HTML, cache-first for assets, network-only for API
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // API calls: network first, no cache
+  // API calls: network only, no cache
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/ws')) {
     event.respondWith(fetch(request).catch(() => {
       return new Response(JSON.stringify({ error: 'Offline' }), {
@@ -44,24 +44,29 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: cache first, network fallback
+  // HTML navigation: network first, cache fallback
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      }).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // Static assets (icons, manifest, sw.js): cache first, network fallback
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
       return fetch(request).then((response) => {
-        // Cache successful GET responses for static files
         if (request.method === 'GET' && response.status === 200) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
-      }).catch(() => {
-        // Fallback for HTML navigation
-        if (request.mode === 'navigate') {
-          return caches.match('/index.html');
-        }
-        return new Response('Offline', { status: 503 });
-      });
+      }).catch(() => new Response('Offline', { status: 503 }));
     })
   );
 });
