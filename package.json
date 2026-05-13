@@ -1,14 +1,39 @@
 {
-  "name": "live-interpreter-simple",
+  "name": "live-interpreter-pro",
+  "private": true,
   "version": "1.0.0",
-  "description": "Live Interpreter — Simple Edition by snxwfairies innovations",
-  "main": "server.js",
+  "type": "module",
   "scripts": {
-    "start": "node server.js",
-    "dev":   "node server.js"
+    "dev": "node server/index.ts",
+    "build:frontend": "vite build",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build": "npm run build:frontend && npm run build:server",
+    "start": "node dist-server/server/index.js"
   },
   "dependencies": {
+    "better-sqlite3": "^11.8.1",
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "ws":      "^8.19.0"
+    "jsonwebtoken": "^9.0.2",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.14",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.9",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^5.0.4",
+    "lucide-react": "^0.546.0",
+    "motion": "^12.23.24",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.1.14",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "Live Interpreter",
   "short_name": "Interpreter",
-  "description": "Real-time voice translation across 10 languages by snxwfairies innovations",
+  "description": "Real-time voice translation across 16 languages",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#060B18",
@@ -9,27 +9,9 @@
   "orientation": "portrait",
   "scope": "/",
   "icons": [
-    {
-      "src": "/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    }
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ],
   "categories": ["productivity", "utilities"],
   "lang": "en",
-  "dir": "ltr",
-  "screenshots": []
+  "dir": "ltr"
 }
