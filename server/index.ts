@@ -201,6 +201,25 @@ app.post("/api/admin/password", adminMiddleware, (req, res) => {
 
 app.get("/api/plans", (_req, res) => res.json({ plans: PLANS }));
 
+// ── Simple translate proxy (no auth, uses server env/DB keys) ──
+const NAME_TO_CODE: Record<string, string> = {
+  hindi: "hi", telugu: "te", tamil: "ta", marathi: "mr",
+  kannada: "kn", malayalam: "ml", gujarati: "gu", bengali: "bn",
+  english: "en", arabic: "ar",
+};
+app.post("/api/proxy/translate", async (req, res) => {
+  const { text, fromName, toName } = req.body;
+  if (!text?.trim() || !fromName || !toName) return res.status(400).json({ error: "Missing fields" });
+  try {
+    const fromCode = NAME_TO_CODE[fromName.toLowerCase()] || "en";
+    const toCode   = NAME_TO_CODE[toName.toLowerCase()]   || "hi";
+    const { result, engine } = await translate(text, fromCode, toCode, fromName, toName);
+    res.json({ result, engine });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 const wss  = new WebSocketServer({ server });
 const rooms = new Map<string, Set<any>>();
 
