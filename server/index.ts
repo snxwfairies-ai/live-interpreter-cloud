@@ -3,46 +3,21 @@ import http from "http";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WebSocketServer, WebSocket } from "ws";
-import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
 import { translate } from "./translate.js";
 import { db, ApiKeys, Users, Admin, Analytics } from "./db.js";
-import { PLANS, getPlan, canStartSession, canJoinRoom, isPlanExpired } from "./plans.js";
+import { PLANS, PlanId, getPlan, canStartSession, canJoinRoom, isPlanExpired } from "./plans.js";
+import { signToken, verifyToken, authMiddleware, adminMiddleware } from "./auth.js";
 import { validateOpenRouterKey, validateSarvamKey } from "./translate.js";
 
 dotenv.config({ path: ".env.local" });
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = Number(process.env.PORT || 3000);
-const JWT_SECRET = process.env.JWT_SECRET || "snxwfairies-live-interpreter-secret-2026";
 
 const app    = express();
 const server = http.createServer(app);
 app.use(express.json({ limit: "2mb" }));
-
-function authMiddleware(req: any, res: any, next: any) {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ error: "No token" });
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    req.userId = payload.userId;
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
-  }
-}
-
-function adminMiddleware(req: any, res: any, next: any) {
-  const token = req.headers.authorization?.replace("Bearer ", "");
-  if (!token) return res.status(401).json({ error: "No token" });
-  try {
-    const payload = jwt.verify(token, JWT_SECRET) as any;
-    if (!payload.isAdmin) return res.status(403).json({ error: "Not admin" });
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
-  }
-}
 
 app.post("/api/auth/device", (req, res) => {
   const { deviceId } = req.body;
@@ -54,14 +29,14 @@ app.post("/api/auth/device", (req, res) => {
     Users.setPlan(deviceId, "free", null);
     user.plan = "free";
   }
-  const token = jwt.sign({ userId: deviceId }, JWT_SECRET, { expiresIn: "90d" });
+  const token = signToken({ userId: deviceId }, "90d");
   res.json({ token, user: { id: user.id, plan: user.plan, sessionsToday: user.sessions_today } });
 });
 
 app.post("/api/auth/admin", (req, res) => {
   const { password } = req.body;
   if (!Admin.check(password)) return res.status(401).json({ error: "Wrong password" });
-  const token = jwt.sign({ isAdmin: true }, JWT_SECRET, { expiresIn: "24h" });
+  const token = signToken({ isAdmin: true }, "24h");
   res.json({ token });
 });
 
@@ -110,9 +85,9 @@ app.post("/api/webhook/revenuecat", express.raw({ type: "application/json" }), (
     const event   = payload.event;
     const userId  = event?.app_user_id;
     const productId = event?.product_id || "";
-    let plan = "free";
+    let plan: PlanId = "free";
     for (const [id, p] of Object.entries(PLANS)) {
-      if (p.play_product_id === productId) { plan = id; break; }
+      if (p.play_product_id === productId) { plan = id as PlanId; break; }
     }
     if (userId && plan) {
       if (["INITIAL_PURCHASE", "RENEWAL", "PRODUCT_CHANGE", "UNCANCELLATION"].includes(event.type)) {
@@ -201,19 +176,30 @@ app.post("/api/admin/password", adminMiddleware, (req, res) => {
 
 app.get("/api/plans", (_req, res) => res.json({ plans: PLANS }));
 
-// ── Simple translate proxy (no auth, uses server env/DB keys) ──
+// ── Translate proxy (auth + session limits) ──
 const NAME_TO_CODE: Record<string, string> = {
   hindi: "hi", telugu: "te", tamil: "ta", marathi: "mr",
   kannada: "kn", malayalam: "ml", gujarati: "gu", bengali: "bn",
   english: "en", arabic: "ar",
 };
-app.post("/api/proxy/translate", async (req, res) => {
+app.post("/api/proxy/translate", authMiddleware, async (req: any, res) => {
   const { text, fromName, toName } = req.body;
   if (!text?.trim() || !fromName || !toName) return res.status(400).json({ error: "Missing fields" });
+
+  // Session limit check
+  const user = Users.get(req.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  const check = canStartSession(user);
+  if (!check.ok) return res.status(402).json({ error: check.reason, upgrade: true });
+
+  const hasKeys = ApiKeys.get("sarvam") || ApiKeys.get("openrouter");
+  if (!hasKeys) return res.status(503).json({ error: "Translation service not configured." });
+
   try {
     const fromCode = NAME_TO_CODE[fromName.toLowerCase()] || "en";
     const toCode   = NAME_TO_CODE[toName.toLowerCase()]   || "hi";
     const { result, engine } = await translate(text, fromCode, toCode, fromName, toName);
+    Users.incrementSession(req.userId);
     res.json({ result, engine });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
